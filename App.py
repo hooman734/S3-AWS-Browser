@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import filedialog
-from shutil import copyfile as CP
 import botocore.exceptions as exc
 
 import boto3
@@ -9,12 +8,24 @@ from Credential.User_credential import get_keys
 root = Tk()
 root.title("S3-Browser    By Hooman Hesamyan V2.0")
 
-# root.geometry('800x600')
 user_access_key_id = ''
+key_id = StringVar()
 user_secret_access_key = ''
+access_key = StringVar()
 user_endpoint_url = ''
 s3 = ''
 s3_client = ''
+login_state = {"state": NORMAL}
+
+
+# def login_state_checker():
+#     global login_state
+#     if len(user_access_key_id) != 0 and len(user_secret_access_key) != 0:
+#         login_state["state"] = ACTIVE
+#
+#
+# while True:
+#     login_state_checker()
 
 
 def init_services(aws_access_key_id, aws_secret_access_key):
@@ -57,9 +68,13 @@ def open_csv():
                                                title="Select key.csv file",
                                                filetypes=(("csv files", "*.csv"), ("txt files", "*.txt")))
 
-    aws_get_key_label2 = Label(aws_login_with_csv, text="Logged in using: " + root.filename.split('/')[-1])
+    aws_get_key_label2 = Label(aws_login_with_csv, text="Extracted keys using: " + root.filename.split('/')[-1])
     aws_get_key_label2.grid(row=2, column=2, columnspan=3)
     user_access_key_id, user_secret_access_key = get_keys(root.filename)
+    global key_id
+    key_id.set(user_access_key_id)
+    global access_key
+    access_key.set(user_secret_access_key)
     aws_browser_button.pack()
 
 
@@ -79,7 +94,6 @@ def iterate_over_buckets(aws_access_key_id, aws_secret_access_key):
         list_box.insert(i, bucket.name)
         i += 1
 
-    # list_box.yview()
     list_box.pack()
     bucket_label.pack()
 
@@ -115,13 +129,14 @@ def iterate_over_files(aws_bucket_name):
     list_box.pack()
     files_label.pack()
     select_button = Button(files_label, text="Download file!", padx=50,
-                           command=lambda: download_file(aws_bucket_name, list_box.get(list_box.curselection()), succeed_response, failed_response))
+                           command=lambda: download_file(aws_bucket_name, list_box.get(list_box.curselection()),
+                                                         succeed_response, failed_response))
     select_button.pack()
 
 
 def download_file(aws_bucket_name, aws_object_name, okay, fail):
     global s3_client
-    file_name = '.' + str(aws_object_name)[:].split('/')[-1]
+    file_name = str(aws_object_name)[:].split('/')[-1]
     try:
         s3_client.download_file(aws_bucket_name, aws_object_name, file_name)
         okay.pack()
@@ -149,7 +164,8 @@ def upload_file(aws_bucket_name):
     failed_response = Label(files_label, text="Uploading failed!")
     selected_name_file.grid(row=0, column=1)
     Button(upload_key_label, text="Upload selected file",
-           command=lambda: upload(root.filename, aws_bucket_name, selected_name_file.get())).grid(row=2, column=0, columnspan=2)
+           command=lambda: upload(root.filename, aws_bucket_name, selected_name_file.get())).grid(row=2, column=0,
+                                                                                                  columnspan=2)
 
     files_label.pack()
     upload_key_label.pack()
@@ -189,21 +205,20 @@ aws_secret_access_key_label = Label(aws_login_with_keys, text="AWS Secret Key: "
                                     bd=1, padx=50)
 aws_get_key_label = Label(aws_login_with_csv, text="Try to log in!")
 
-aws_key_id_entry = Entry(aws_login_with_keys)
-aws_secret_access_key_entry = Entry(aws_login_with_keys)
+aws_key_id_entry = Entry(aws_login_with_keys, textvariable=key_id)
+aws_secret_access_key_entry = Entry(aws_login_with_keys, textvariable=access_key, show='*')
 
 aws_submit_keys = Button(aws_login_with_keys, text="Login!", padx=50, command=lambda: open_input(), fg="#052b69",
-                         borderwidth="2", state=NORMAL)
+                         borderwidth="2", state=login_state['state'])
 aws_get_key_file = Button(aws_login_with_csv, text="Login with credential file...", command=lambda: open_csv(),
-                          fg="#052b69",
-                          borderwidth="2", padx=50)
-aws_browser_button = Button(aws_browse_content, text="Browse all buckets...", command=lambda: iterate_over_buckets(user_access_key_id, user_secret_access_key), padx=100)
+                          fg="#052b69", borderwidth="2", padx=50)
+aws_browser_button = Button(aws_browse_content, text="Browse all buckets...",
+                            command=lambda: iterate_over_buckets(user_access_key_id, user_secret_access_key), padx=100)
 
 introduction.grid(row=0, column=0, columnspan=6)
 aws_login_with_keys.grid(row=1, column=1)
 aws_login_with_csv.grid(row=1, column=2)
 aws_browse_content.grid(row=2, column=1, columnspan=2)
-
 
 aws_key_id_label.grid(row=1, column=0, sticky=W + E)
 aws_secret_access_key_label.grid(row=2, column=0, sticky=W + E)
