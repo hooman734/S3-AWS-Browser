@@ -1,5 +1,7 @@
 from tkinter import *
 from tkinter import filedialog
+from shutil import copyfile as CP
+import botocore.exceptions as exc
 
 import boto3
 from Credential.User_credential import get_keys
@@ -102,6 +104,8 @@ def iterate_over_files(aws_bucket_name):
     files.title("Files")
     files_label = LabelFrame(files, text="All files are:")
     Label(files_label, text="Inside bucket: " + aws_bucket_name, fg="#b82c06").pack()
+    succeed_response = Label(files_label, text="Download succeed", fg="#b82c06")
+    failed_response = Label(files_label, text="Download failed", fg="#b82c06")
     list_box = Listbox(files_label, bg="#abe895", selectmode=SINGLE, width=50, selectbackground="#19bf06")
 
     for file in s3.Bucket(aws_bucket_name).objects.all():
@@ -111,18 +115,22 @@ def iterate_over_files(aws_bucket_name):
     list_box.pack()
     files_label.pack()
     select_button = Button(files_label, text="Download file!", padx=50,
-                           command=lambda: download_file(aws_bucket_name, list_box.get(list_box.curselection())))
+                           command=lambda: download_file(aws_bucket_name, list_box.get(list_box.curselection()), succeed_response, failed_response))
     select_button.pack()
 
 
-def download_file(aws_bucket_name, aws_object_name):
+def download_file(aws_bucket_name, aws_object_name, okay, fail):
     global s3_client
+    file_name = '.' + str(aws_object_name)[:].split('/')[-1]
     try:
-        s3_client.download_file(aws_bucket_name, aws_object_name)
+        s3_client.download_file(aws_bucket_name, aws_object_name, file_name)
+        okay.pack()
+        # CP(file_name, '~/Desktop')
         print("Download was successful")
-        return True
-    finally:
-        print('idle........')
+
+    except exc.ClientError:
+        fail.pack()
+        print("")
 
 
 def upload_file(aws_bucket_name):
@@ -168,7 +176,7 @@ def upload_file(aws_bucket_name):
             print("failed to upload...")
 
 
-introduction = Label(root, text="For using AWS please insert these information:", fg="#69054b", font=("Arial", 32),
+introduction = Label(root, text="For using AWS please insert these information:", fg="#69054b", font=("Arial", 16),
                      justify=LEFT,
                      padx=200, relief=SUNKEN, bd=1)
 aws_login_with_keys = LabelFrame(root, text="Login with keys")
