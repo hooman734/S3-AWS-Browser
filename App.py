@@ -12,50 +12,88 @@ user_access_key_id = ''
 key_id = StringVar()
 user_secret_access_key = ''
 access_key = StringVar()
-user_endpoint_url = ''
+user_endpoint_url = StringVar()
 s3 = ''
 s3_client = ''
-login_state = {"state": NORMAL}
+is_local = BooleanVar(False)
+counter = 1
+state = {"login": NORMAL,
+         "browser": DISABLED}
 
 
-# def login_state_checker():
-#     global login_state
-#     if len(user_access_key_id) != 0 and len(user_secret_access_key) != 0:
-#         login_state["state"] = ACTIVE
-#
-#
-# while True:
-#     login_state_checker()
-
-
-def init_services(aws_access_key_id, aws_secret_access_key):
+def init_services():
     global s3
     global s3_client
-    s3_client = boto3.client('s3',
-                             # endpoint_url=user_access_key_id,
-                             aws_access_key_id=user_access_key_id,
-                             aws_secret_access_key=user_secret_access_key
-                             )
-    s3 = boto3.resource('s3',
-                        # endpoint_url=user_access_key_id,
-                        aws_access_key_id=user_access_key_id,
-                        aws_secret_access_key=user_secret_access_key
-                        )
+    global user_access_key_id
+    global user_secret_access_key
+    global user_endpoint_url
+    global is_local
+    print(is_local.get())
+    if is_local.get():
+        try:
+            s3_client = boto3.client('s3',
+                                     endpoint_url=user_endpoint_url.get(),
+                                     aws_access_key_id=user_access_key_id,
+                                     aws_secret_access_key=user_secret_access_key
+                                     )
+            s3 = boto3.resource('s3',
+                                endpoint_url=user_endpoint_url.get(),
+                                aws_access_key_id=user_access_key_id,
+                                aws_secret_access_key=user_secret_access_key
+                                )
+        except exc.NoCredentialsError:
+            aws_status_label['text'] = "Failed to login!"
+            aws_status_label['bg'] = 'red'
+            aws_status_label['fg'] = 'Yellow'
+        except Exception:
+            aws_status_label['text'] = "Failed to login!"
+            aws_status_label['bg'] = 'red'
+            aws_status_label['fg'] = 'Yellow'
+
+    else:
+        try:
+            s3_client = boto3.client('s3',
+                                     aws_access_key_id=user_access_key_id,
+                                     aws_secret_access_key=user_secret_access_key
+                                     )
+            s3 = boto3.resource('s3',
+                                aws_access_key_id=user_access_key_id,
+                                aws_secret_access_key=user_secret_access_key
+                                )
+        except exc.NoCredentialsError:
+            aws_status_label['text'] = "Failed to login!"
+            aws_status_label['bg'] = 'red'
+            aws_status_label['fg'] = 'Yellow'
+        except Exception:
+            aws_status_label['text'] = "Failed to login!"
+            aws_status_label['bg'] = 'red'
+            aws_status_label['fg'] = 'Yellow'
 
 
-def open_input():
+def login():
     global user_access_key_id
     global user_secret_access_key
     global s3
     global s3_client
+    global state
 
     user_access_key_id = aws_key_id_entry.get()
     user_secret_access_key = aws_secret_access_key_entry.get()
+    global counter
+    if len(user_access_key_id) == 0 or len(user_secret_access_key) == 0:
+        aws_login_key.flash()
+        aws_login_key['text'] = "Login - retry {}".format(counter)
+        counter += 1
 
-    iterate_over_buckets(user_access_key_id, user_secret_access_key)
-
-    aws_key_id_entry.delete(0, END)
-    aws_secret_access_key_entry.delete(0, END)
+    else:
+        init_services()
+        aws_key_id_entry.delete(0, END)
+        aws_secret_access_key_entry.delete(0, END)
+        aws_browser_button['state'] = NORMAL
+        aws_status_label['text'] = "Logged in Successfully"
+        aws_status_label['bg'] = '#076e0c'
+        aws_status_label['fg'] = 'Yellow'
+        aws_browser_button.pack()
 
 
 def open_csv():
@@ -78,11 +116,10 @@ def open_csv():
     aws_browser_button.pack()
 
 
-def iterate_over_buckets(aws_access_key_id, aws_secret_access_key):
+def iterate_over_buckets():
     global s3
     global s3_client
-    init_services(aws_access_key_id, aws_secret_access_key)
-    buckets = Tk()
+    buckets = Toplevel()
     buckets.title("Buckets")
     bucket_label = LabelFrame(buckets, text="All buckets are:")
     list_box = Listbox(bucket_label, bg="#e8ae95", selectmode=SINGLE, width=50, selectbackground="#bf06b9", cursor="")
@@ -114,7 +151,7 @@ def iterate_over_files(aws_bucket_name):
     global s3
     if len(aws_bucket_name) == 0:
         return
-    files = Tk()
+    files = Toplevel()
     files.title("Files")
     files_label = LabelFrame(files, text="All files are:")
     Label(files_label, text="Inside bucket: " + aws_bucket_name, fg="#b82c06").pack()
@@ -153,10 +190,10 @@ def upload_file(aws_bucket_name):
     global s3_client
     print(aws_bucket_name)
 
-    files = Tk()
-    files.title("Files")
-    files_label = LabelFrame(files, text="Upload a file:")
-    upload_key_label = LabelFrame(files)
+    upload_files = Toplevel()
+    upload_files.title("Files")
+    files_label = LabelFrame(upload_files, text="Upload a file:")
+    upload_key_label = LabelFrame(upload_files)
     Label(files_label, text="Selected bucket: " + aws_bucket_name, fg="#b82c06").pack()
     Label(upload_key_label, text="Choose a name for uploading file: ").grid(row=0, column=0)
     selected_name_file = Entry(upload_key_label)
@@ -195,38 +232,53 @@ def upload_file(aws_bucket_name):
 introduction = Label(root, text="For using AWS please insert these information:", fg="#69054b", font=("Arial", 16),
                      justify=LEFT,
                      padx=200, relief=SUNKEN, bd=1)
-aws_login_with_keys = LabelFrame(root, text="Login with keys")
-aws_login_with_csv = LabelFrame(root, text="Login with CSV file")
+aws_status_bar = LabelFrame(root, text='')
+aws_login_with_keys = LabelFrame(root, text="Login with keys", pady=10)
+aws_login_with_csv = LabelFrame(root, text="Login with CSV file", pady=30)
 aws_browse_content = LabelFrame(root, text="Browser...")
 
-aws_key_id_label = Label(aws_login_with_keys, text="AWS Access Key Id: ", fg="#052b69", anchor=E, relief=SUNKEN, bd=1,
+aws_status_label = Label(aws_status_bar, state=DISABLED, bg='blue', text="Not logged in...", fg='white',
+                         font=("Times", 14))
+aws_key_id_label = Label(aws_login_with_keys, text="Access Key Id: ", fg="#052b69", anchor=E, relief=SUNKEN, bd=1,
                          padx=50)
-aws_secret_access_key_label = Label(aws_login_with_keys, text="AWS Secret Key: ", fg="#052b69", anchor=E, relief=SUNKEN,
+aws_secret_access_key_label = Label(aws_login_with_keys, text="Secret Key: ", fg="#052b69", anchor=E, relief=SUNKEN,
                                     bd=1, padx=50)
+aws_endpoint_address_label = Label(aws_login_with_keys, text="End-point address: ", fg="#052b69", anchor=E,
+                                   relief=SUNKEN,
+                                   bd=1, padx=50)
+aws_endpoint_checkbox = Checkbutton(aws_login_with_keys, text="use", variable=is_local)
 aws_get_key_label = Label(aws_login_with_csv, text="Try to log in!")
 
 aws_key_id_entry = Entry(aws_login_with_keys, textvariable=key_id)
 aws_secret_access_key_entry = Entry(aws_login_with_keys, textvariable=access_key, show='*')
+aws_endpoint_address_entry = Entry(aws_login_with_keys, textvariable=user_endpoint_url)
 
-aws_submit_keys = Button(aws_login_with_keys, text="Login!", padx=50, command=lambda: open_input(), fg="#052b69",
-                         borderwidth="2", state=login_state['state'])
+# Main window keys
+aws_login_key = Button(aws_login_with_keys, text="Login!", padx=50, command=lambda: login(), fg="#052b69",
+                       borderwidth="2", state=state['login'])
 aws_get_key_file = Button(aws_login_with_csv, text="Login with credential file...", command=lambda: open_csv(),
                           fg="#052b69", borderwidth="2", padx=50)
 aws_browser_button = Button(aws_browse_content, text="Browse all buckets...",
-                            command=lambda: iterate_over_buckets(user_access_key_id, user_secret_access_key), padx=100)
+                            command=lambda: iterate_over_buckets(), state=state['browser'], padx=100)
 
 introduction.grid(row=0, column=0, columnspan=6)
-aws_login_with_keys.grid(row=1, column=1)
-aws_login_with_csv.grid(row=1, column=2)
-aws_browse_content.grid(row=2, column=1, columnspan=2)
+aws_status_bar.grid(row=1, column=0, columnspan=6, sticky=E)
+aws_login_with_keys.grid(row=2, column=1)
+aws_login_with_csv.grid(row=2, column=2)
+aws_browse_content.grid(row=3, column=1, columnspan=2)
 
 aws_key_id_label.grid(row=1, column=0, sticky=W + E)
 aws_secret_access_key_label.grid(row=2, column=0, sticky=W + E)
 aws_key_id_entry.grid(row=1, column=1)
 aws_secret_access_key_entry.grid(row=2, column=1)
-aws_submit_keys.grid(row=3, column=0, columnspan=2)
+aws_endpoint_address_label.grid(row=3, column=0)
+aws_endpoint_address_entry.grid(row=3, column=1)
+aws_login_key.grid(row=4, column=0, columnspan=2)
 aws_get_key_file.grid(row=1, column=2, columnspan=3)
 aws_get_key_label.grid(row=2, column=2, columnspan=3)
+aws_endpoint_checkbox.grid(row=3, column=2)
+aws_status_label.pack()
+
 # aws_browser_button.pack()
 
 root.mainloop()
