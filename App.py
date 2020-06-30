@@ -229,6 +229,13 @@ def upload_file(aws_bucket_name):
             print("failed to upload...")
 
 
+app_menu = Menu(root)
+root.config(menu=app_menu)
+
+# about_me = Menu(app_menu)
+# about_me.add_cascade(label='about me!', menu=about_me)
+# about_me.add_command(label="hello")
+
 introduction = Label(root, text="For using AWS please insert these information:", fg="#69054b", font=("Arial", 16),
                      justify=LEFT,
                      padx=200, relief=SUNKEN, bd=1)
